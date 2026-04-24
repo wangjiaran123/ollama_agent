@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Agent - 智能对话助手</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 动态粒子背景 -->
+        <canvas id="particle-bg"></canvas>
+
+        <!-- 顶部导航 -->
+        <nav class="top-nav">
+            <div class="nav-brand">
+                <div class="brand-icon">
+                    <i class="fas fa-atom"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>Ollama Agent</h1>
+                    <span class="brand-subtitle">智能对话助手</span>
+                </div>
+            </div>
+            <div class="nav-center">
+                <div class="connection-pill" id="connection-pill">
+                    <span class="pulse-dot" id="pulse-dot"></span>
+                    <span id="connection-text">检查连接中...</span>
+                </div>
+            </div>
+            <div class="nav-actions">
+                <button class="icon-btn" id="theme-toggle" title="切换主题">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="icon-btn" id="settings-btn" title="设置">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="icon-btn danger" id="clear-chat-btn" title="清空对话">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- 主布局 -->
+        <div class="main-layout">
+            <!-- 左侧边栏 -->
+            <aside class="sidebar glass-panel" id="sidebar">
+                <div class="sidebar-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-brain"></i>
+                        模型选择
+                    </h3>
+                    <div class="model-selector-wrapper">
+                        <select id="model-select" class="glass-select">
+                            <option value="">加载模型中...</option>
+                        </select>
+                        <div class="model-badge" id="model-badge">文本</div>
+                    </div>
+                    <div class="model-meta" id="model-meta">
+                        <span id="model-size">--</span>
+                        <span class="meta-divider">|</span>
+                        <span id="model-status">就绪</span>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-lightbulb"></i>
+                        思考链
+                    </h3>
+                    <label class="modern-switch">
+                        <input type="checkbox" id="thinking-toggle" checked>
+                        <span class="switch-track">
+                            <span class="switch-thumb"></span>
+                        </span>
+                        <span class="switch-label">启用思考链</span>
+                    </label>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-toolbox"></i>
+                        工具面板
+                    </h3>
+                    <div class="tools-grid">
+                        <button class="tool-card" id="camera-btn">
+                            <i class="fas fa-camera"></i>
+                            <span>摄像头</span>
+                        </button>
+                        <button class="tool-card" id="audio-record-btn">
+                            <i class="fas fa-microphone"></i>
+                            <span>语音</span>
+                        </button>
+                        <button class="tool-card" id="code-interpreter-btn">
+                            <i class="fas fa-code"></i>
+                            <span>代码</span>
+                        </button>
+                        <label class="tool-card" for="file-upload">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>上传</span>
+                        </label>
+                        <input type="file" id="file-upload" multiple accept=".txt,.pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp3,.wav,.mp4" hidden>
+                    </div>
+                </div>
+
+                <!-- 摄像头预览 -->
+                <div class="camera-preview hidden" id="camera-preview">
+                    <video id="video" autoplay playsinline></video>
+                    <div class="camera-overlay">
+                        <button class="cam-action primary" id="capture-btn">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button class="cam-action" id="close-camera-btn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 音频录制 -->
+                <div class="audio-recording hidden" id="audio-recording">
+                    <div class="audio-wave">
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                    <span class="audio-timer">00:00</span>
+                    <button class="btn-danger btn-sm" id="stop-audio-btn">
+                        <i class="fas fa-stop"></i> 停止
+                    </button>
+                </div>
+
+                <!-- 代码解释器面板 -->
+                <div class="code-interpreter-panel hidden" id="code-interpreter-panel">
+                    <div class="code-header">
+                        <span><i class="fas fa-terminal"></i> Python 沙盒</span>
+                        <button class="icon-btn sm" id="code-panel-close">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <textarea id="code-editor" class="code-editor" spellcheck="false" placeholder="# 在这里编写Python代码">import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+plt.plot(x, y)
+plt.title('Sine Wave')
+plt.show()</textarea>
+                    <div class="code-toolbar">
+                        <button class="btn-primary btn-sm" id="code-run-btn">
+                            <i class="fas fa-play"></i> 运行
+                        </button>
+                        <button class="btn-danger btn-sm hidden" id="code-stop-btn">
+                            <i class="fas fa-stop"></i> 停止
+                        </button>
+                        <button class="btn-secondary btn-sm" id="code-insert-btn">
+                            <i class="fas fa-reply"></i> 发送
+                        </button>
+                        <span class="code-status" id="code-status">就绪</span>
+                    </div>
+                    <div class="code-output" id="code-output">
+                        <div class="code-placeholder">点击「运行」执行代码</div>
+                    </div>
+                </div>
+
+                <!-- 已上传文件 -->
+                <div class="uploaded-files" id="uploaded-files"></div>
+            </aside>
+
+            <!-- 聊天区域 -->
+            <main class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <div class="welcome-screen">
+                        <div class="welcome-hero">
+                            <div class="hero-icon">
+                                <i class="fas fa-atom"></i>
+                            </div>
+                            <h2>欢迎使用 Ollama Agent</h2>
+                            <p>基于本地大语言模型的智能对话助手</p>
+                        </div>
+                        <div class="feature-grid">
+                            <div class="feature-card">
+                                <div class="feature-icon">
+                                    <i class="fas fa-eye"></i>
+                                </div>
+                                <h4>视觉理解</h4>
+                                <p>支持图像分析与描述</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                                <h4>文件分析</h4>
+                                <p>智能解析各类文档</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">
+                                    <i class="fas fa-microphone"></i>
+                                </div>
+                                <h4>语音输入</h4>
+                                <p>便捷的语音交互</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">
+                                    <i class="fas fa-code"></i>
+                                </div>
+                                <h4>代码执行</h4>
+                                <p>Python 沙盒环境</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 输入区域 -->
+                <div class="input-area glass-panel">
+                    <div class="input-wrapper">
+                        <textarea id="message-input" placeholder="输入消息... (Shift+Enter 换行)" rows="1"></textarea>
+                        <div class="input-actions">
+                            <button class="send-btn" id="send-btn">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                            <button class="stop-btn hidden" id="stop-btn">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="input-hints">
+                        <span><i class="fas fa-keyboard"></i> Enter 发送 · Shift+Enter 换行</span>
+                        <span><i class="fas fa-paperclip"></i> 支持拖拽文件</span>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div class="modal" id="settings-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h2><i class="fas fa-cog"></i> 设置</h2>
+                <button class="close-btn" id="close-settings">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <h3>外部 API 配置</h3>
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="password" id="api-key" placeholder="输入 API Key">
+                    </div>
+                    <div class="form-group">
+                        <label>API Base URL</label>
+                        <input type="text" id="api-base" placeholder="https://api.example.com/v1">
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <h3>系统状态</h3>
+                    <div class="system-info">
+                        <div class="info-row">
+                            <span>Ollama 状态</span>
+                            <span class="status-badge" id="ollama-status">检查中...</span>
+                        </div>
+                        <div class="info-row">
+                            <span>可用模型</span>
+                            <span id="available-models-count">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="test-connection-btn">
+                    <i class="fas fa-plug"></i> 测试连接
+                </button>
+                <button class="btn-primary" id="save-settings-btn">
+                    <i class="fas fa-save"></i> 保存设置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div class="toast error hidden" id="error-toast">
+        <i class="fas fa-exclamation-circle"></i>
+        <span id="error-message"></span>
+        <button class="toast-close" id="close-error-btn">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- 成功提示 -->
+    <div class="toast success hidden" id="success-toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="success-message"></span>
+    </div>
+
+    <script src="/static/js/socket.io.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
